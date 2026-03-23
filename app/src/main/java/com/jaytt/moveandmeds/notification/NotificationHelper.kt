@@ -42,6 +42,20 @@ object NotificationHelper {
         val intent = Intent(context, MainActivity::class.java)
         val pi = PendingIntent.getActivity(context, 0, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+
+        // Dismiss intent — fires when user swipes the notification away
+        val dismissIntent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra(AlarmScheduler.EXTRA_TYPE, AlarmScheduler.TYPE_DISMISSED)
+            putExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE, AlarmScheduler.TYPE_MOVEMENT)
+            putExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, System.currentTimeMillis())
+        }
+        val dismissPi = PendingIntent.getBroadcast(
+            context,
+            AlarmScheduler.MOVEMENT_ALARM_ID + 70000,
+            dismissIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         val notification = NotificationCompat.Builder(context, CHANNEL_MOVEMENT)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Time to move!")
@@ -49,6 +63,7 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pi)
+            .setDeleteIntent(dismissPi)
             .build()
         context.getSystemService(NotificationManager::class.java)
             .notify(1000, notification)

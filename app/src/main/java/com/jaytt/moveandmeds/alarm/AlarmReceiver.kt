@@ -354,7 +354,8 @@ class AlarmReceiver : BroadcastReceiver() {
                 val itemId = intent.getIntExtra(AlarmScheduler.EXTRA_ITEM_ID, 0)
                 val itemName = when (originalType) {
                     AlarmScheduler.TYPE_MEDICINE -> intent.getStringExtra(AlarmScheduler.EXTRA_MEDICINE_NAME) ?: ""
-                    else -> intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NAME) ?: ""
+                    AlarmScheduler.TYPE_EXERCISE -> intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NAME) ?: ""
+                    else -> "Movement"
                 }
                 val scheduledTime = intent.getLongExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, System.currentTimeMillis())
 
