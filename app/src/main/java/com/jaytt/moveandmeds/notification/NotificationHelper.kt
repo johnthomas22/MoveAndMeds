@@ -42,6 +42,20 @@ object NotificationHelper {
         val intent = Intent(context, MainActivity::class.java)
         val pi = PendingIntent.getActivity(context, 0, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+
+        // Dismiss intent — fires when user swipes the notification away
+        val dismissIntent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra(AlarmScheduler.EXTRA_TYPE, AlarmScheduler.TYPE_DISMISSED)
+            putExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE, AlarmScheduler.TYPE_MOVEMENT)
+            putExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, System.currentTimeMillis())
+        }
+        val dismissPi = PendingIntent.getBroadcast(
+            context,
+            AlarmScheduler.MOVEMENT_ALARM_ID + 70000,
+            dismissIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         val notification = NotificationCompat.Builder(context, CHANNEL_MOVEMENT)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Time to move!")
@@ -49,6 +63,7 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pi)
+            .setDeleteIntent(dismissPi)
             .build()
         context.getSystemService(NotificationManager::class.java)
             .notify(1000, notification)
@@ -63,7 +78,8 @@ object NotificationHelper {
         hour: Int,
         minute: Int,
         itemId: Int,
-        daysOfWeek: String
+        daysOfWeek: String,
+        scheduledTime: Long = System.currentTimeMillis()
     ) {
         val intent = Intent(context, MainActivity::class.java)
         val pi = PendingIntent.getActivity(context, notifId, intent,
@@ -88,6 +104,21 @@ object NotificationHelper {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        // Dismiss intent — fires when user swipes the notification away
+        val dismissIntent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra(AlarmScheduler.EXTRA_TYPE, AlarmScheduler.TYPE_DISMISSED)
+            putExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE, AlarmScheduler.TYPE_MEDICINE)
+            putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
+            putExtra(AlarmScheduler.EXTRA_MEDICINE_NAME, medicineName)
+            putExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, scheduledTime)
+        }
+        val dismissPi = PendingIntent.getBroadcast(
+            context,
+            alarmId + 70000,
+            dismissIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         val notification = NotificationCompat.Builder(context, CHANNEL_MEDICINE)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Medicine reminder")
@@ -95,6 +126,7 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pi)
+            .setDeleteIntent(dismissPi)
             .addAction(R.drawable.ic_notification, "Snooze 10 min", snoozePi)
             .build()
         context.getSystemService(NotificationManager::class.java)
@@ -111,7 +143,8 @@ object NotificationHelper {
         hour: Int,
         minute: Int,
         itemId: Int,
-        daysOfWeek: String
+        daysOfWeek: String,
+        scheduledTime: Long = System.currentTimeMillis()
     ) {
         val intent = Intent(context, MainActivity::class.java)
         val pi = PendingIntent.getActivity(context, notifId, intent,
@@ -147,6 +180,21 @@ object NotificationHelper {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        // Dismiss intent — fires when user swipes the notification away
+        val dismissIntent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra(AlarmScheduler.EXTRA_TYPE, AlarmScheduler.TYPE_DISMISSED)
+            putExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE, AlarmScheduler.TYPE_EXERCISE)
+            putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
+            putExtra(AlarmScheduler.EXTRA_EXERCISE_NAME, exerciseName)
+            putExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, scheduledTime)
+        }
+        val dismissPi = PendingIntent.getBroadcast(
+            context,
+            alarmId + 70000,
+            dismissIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         val notification = NotificationCompat.Builder(context, CHANNEL_EXERCISE)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Exercise reminder")
@@ -154,6 +202,7 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pi)
+            .setDeleteIntent(dismissPi)
             .addAction(R.drawable.ic_notification, "Snooze 10 min", snoozePi)
             .build()
         context.getSystemService(NotificationManager::class.java)

@@ -135,7 +135,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 val shouldShow = isTodayInDays(daysOfWeek)
                 if (shouldShow) {
                     NotificationHelper.showMedicineNotification(
-                        context, name, dosage, alarmId, alarmId, hour, minute, itemId, daysOfWeek
+                        context, name, dosage, alarmId, alarmId, hour, minute, itemId, daysOfWeek, scheduledTime
                     )
                     // Record history
                     val pendingResult = goAsync()
@@ -204,7 +204,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 val shouldShow = isTodayInDays(daysOfWeek)
                 if (shouldShow) {
                     NotificationHelper.showExerciseNotification(
-                        context, name, sets, reps, alarmId, alarmId, hour, minute, itemId, daysOfWeek
+                        context, name, sets, reps, alarmId, alarmId, hour, minute, itemId, daysOfWeek, scheduledTime
                     )
                     val pendingResult = goAsync()
                     CoroutineScope(Dispatchers.IO).launch {
@@ -345,6 +345,37 @@ class AlarmReceiver : BroadcastReceiver() {
                             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
                         val am = context.getSystemService(AlarmManager::class.java)
                         scheduleExactOrInexact(am, triggerAt, pi)
+                    }
+                }
+            }
+
+            AlarmScheduler.TYPE_DISMISSED -> {
+                val originalType = intent.getStringExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE) ?: return
+                val itemId = intent.getIntExtra(AlarmScheduler.EXTRA_ITEM_ID, 0)
+                val itemName = when (originalType) {
+                    AlarmScheduler.TYPE_MEDICINE -> intent.getStringExtra(AlarmScheduler.EXTRA_MEDICINE_NAME) ?: ""
+                    AlarmScheduler.TYPE_EXERCISE -> intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NAME) ?: ""
+                    else -> "Movement"
+                }
+                val scheduledTime = intent.getLongExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, System.currentTimeMillis())
+
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val db = openDb(context)
+                        db.historyDao().insert(
+                            ReminderHistory(
+                                itemType = originalType,
+                                itemId = itemId,
+                                itemName = itemName,
+                                scheduledTime = scheduledTime,
+                                firedTime = System.currentTimeMillis(),
+                                status = "dismissed"
+                            )
+                        )
+                        db.close()
+                    } finally {
+                        pendingResult.finish()
                     }
                 }
             }
