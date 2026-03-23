@@ -1,0 +1,20 @@
+# Keystore - never commit
+*.jks
+*.keystore
+
+# Build outputs
+build/
+app/build/
+
+# Gradle
+.gradle/
+local.properties
+
+# Android Studio
+*.iml
+.idea/
+*.DS_Store
+
+# Release artifacts
+*.aab
+*.apk
