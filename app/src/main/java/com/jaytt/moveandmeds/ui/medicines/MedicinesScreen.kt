@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jaytt.moveandmeds.data.model.MedicineWithTimes
+import com.jaytt.moveandmeds.util.RecoveryHelper
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,6 +37,10 @@ fun MedicinesScreen(
 ) {
     val medicines by viewModel.medicines.collectAsState()
     val context = LocalContext.current
+    val recoveryMessage = remember {
+        RecoveryHelper.getRecoveryStartDate(context)
+            ?.let { RecoveryHelper.getMotivationalMessage(it) }
+    }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -71,7 +76,7 @@ fun MedicinesScreen(
             }
         }
     ) { padding ->
-        if (medicines.isEmpty()) {
+        if (medicines.isEmpty() && recoveryMessage.isNullOrEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -92,12 +97,44 @@ fun MedicinesScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(medicines, key = { "medicine_${it.medicine.id}" }) { mwt ->
-                    MedicineCard(
-                        mwt = mwt,
-                        onEdit = { onEditMedicine(mwt.medicine.id) },
-                        onDelete = { viewModel.deleteMedicine(mwt) }
-                    )
+                if (!recoveryMessage.isNullOrEmpty()) {
+                    item(key = "recovery_banner") {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        ) {
+                            Text(
+                                text = recoveryMessage,
+                                modifier = Modifier.padding(16.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+                if (medicines.isEmpty()) {
+                    item(key = "empty_hint") {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "No medicines added yet. Tap + to add one.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    items(medicines, key = { "medicine_${it.medicine.id}" }) { mwt ->
+                        MedicineCard(
+                            mwt = mwt,
+                            onEdit = { onEditMedicine(mwt.medicine.id) },
+                            onDelete = { viewModel.deleteMedicine(mwt) }
+                        )
+                    }
                 }
             }
         }
