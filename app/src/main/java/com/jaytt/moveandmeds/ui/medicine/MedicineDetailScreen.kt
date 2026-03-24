@@ -4,6 +4,7 @@ import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -14,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import java.util.Calendar
@@ -35,6 +37,7 @@ fun MedicineDetailScreen(
     var times by remember { mutableStateOf<List<Pair<Int, Int>>>(emptyList()) }
     var daysOfWeek by remember { mutableStateOf(setOf(1, 2, 3, 4, 5, 6, 7)) }
     var loaded by remember { mutableStateOf(false) }
+    var timesPerDayText by remember { mutableStateOf("") }
 
     val context = LocalContext.current
 
@@ -114,6 +117,23 @@ fun MedicineDetailScreen(
                 DaysOfWeekSelector(
                     selectedDays = daysOfWeek,
                     onSelectionChanged = { daysOfWeek = it }
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = timesPerDayText,
+                    onValueChange = { value ->
+                        timesPerDayText = value
+                        val count = value.trim().toIntOrNull()
+                        if (count != null && count > 0) {
+                            times = viewModel.generateDefaultTimes(count)
+                        }
+                    },
+                    label = { Text("Times per day") },
+                    placeholder = { Text("e.g. 3") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             }
             item {
