@@ -6,15 +6,22 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jaytt.moveandmeds.data.model.MovementSettings
 import com.jaytt.moveandmeds.ui.movement.MovementViewModel
+import com.jaytt.moveandmeds.util.RecoveryHelper
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,6 +32,38 @@ fun SettingsScreen(
 ) {
     val settings by viewModel.settings.collectAsState()
     var localSettings by remember(settings) { mutableStateOf(settings ?: MovementSettings()) }
+
+    val context = LocalContext.current
+    var recoveryStartDate by remember {
+        mutableStateOf(RecoveryHelper.getRecoveryStartDate(context))
+    }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = recoveryStartDate
+                ?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val millis = datePickerState.selectedDateMillis
+                    val date = millis?.let {
+                        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    RecoveryHelper.setRecoveryStartDate(context, date)
+                    recoveryStartDate = date
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -107,6 +146,53 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Save Movement Settings")
+            }
+
+            HorizontalDivider()
+
+            // Recovery section
+            Text(
+                "Recovery",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Set your operation or recovery start date to see daily progress and motivational messages.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (recoveryStartDate != null) {
+                val formatter = DateTimeFormatter.ofPattern("d MMM yyyy")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Started: ${recoveryStartDate!!.format(formatter)}")
+                    }
+                    IconButton(onClick = {
+                        RecoveryHelper.setRecoveryStartDate(context, null)
+                        recoveryStartDate = null
+                    }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear recovery date")
+                    }
+                }
+                Text(
+                    RecoveryHelper.getMotivationalMessage(recoveryStartDate!!),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Button(
+                    onClick = { showDatePicker = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Set Recovery Start Date")
+                }
             }
 
             HorizontalDivider()
