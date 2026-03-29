@@ -365,8 +365,9 @@ fun ExerciseScanResultScreen(
 
     // Per-exercise image crops from the scanned page
     var exerciseCrops by remember { mutableStateOf<List<Bitmap?>>(emptyList()) }
+    var cropsLoading by remember { mutableStateOf(true) }
     LaunchedEffect(blocks) {
-        if (blocks.isEmpty()) { exerciseCrops = emptyList(); return@LaunchedEffect }
+        if (blocks.isEmpty()) { exerciseCrops = emptyList(); cropsLoading = false; return@LaunchedEffect }
         val cacheFile = File(context.cacheDir, "exercise_scan_temp.jpg")
         if (!cacheFile.exists()) { exerciseCrops = List(blocks.size) { null }; return@LaunchedEffect }
         try {
@@ -396,59 +397,39 @@ fun ExerciseScanResultScreen(
             }
             val allLines = visionText.textBlocks.flatMap { it.lines }
 
-            // For each exercise find both ends of its name line; the diagram
-            // is the largest text-free gap in the body below that line.
-            data class NameBounds(val top: Int, val nameBottom: Int)
+            // Layout: diagram (left column) | exercise name + instructions (middle) | HOW OFTEN (right)
+            // The diagram sits beside the text at the same Y position — there is no
+            // vertical text-free gap to detect.  Instead, crop everything to the LEFT
+            // of the exercise name's X position, for the exercise's full Y range.
+            data class NameBounds(val top: Int, val nameLeft: Int)
             val nameBoundsMap = blocks.map { block ->
                 val line = allLines.firstOrNull { line ->
                     line.text.contains(block.name, ignoreCase = true) ||
                     block.name.contains(line.text.trim(), ignoreCase = true)
                 }
-                NameBounds(line?.boundingBox?.top ?: -1, line?.boundingBox?.bottom ?: -1)
+                NameBounds(line?.boundingBox?.top ?: -1, line?.boundingBox?.left ?: -1)
             }
 
             exerciseCrops = withContext(Dispatchers.Default) {
                 blocks.indices.map { i ->
-                    val (nameTop, nameBottom) = nameBoundsMap[i]
-                    if (nameTop < 0 || nameBottom < 0) return@map null
-                    val exerciseEnd = nameBoundsMap.drop(i + 1)
-                        .firstOrNull { it.top > nameTop }?.top ?: bitmap.height
+                    val (nameTop, nameLeft) = nameBoundsMap[i]
+                    // nameLeft must be at least 20% of image width — rules out sheets
+                    // where the exercise name starts at the left edge (no diagram column)
+                    if (nameTop < 0 || nameLeft < bitmap.width / 5) return@map null
 
-                    // Collect text lines in this exercise's body (below the name)
-                    val bodyLines = allLines
-                        .filter { line ->
-                            val box = line.boundingBox ?: return@filter false
-                            box.top > nameBottom && box.bottom <= exerciseEnd
-                        }
-                        .sortedBy { it.boundingBox!!.top }
+                    val exerciseEnd = nameBoundsMap.drop(i + 1).firstOrNull { it.top > nameTop }?.top
+                        ?: if (nameBoundsMap.size > 1) {
+                            // Estimate row height from the spacing between exercise names
+                            val avgRowHeight = (nameBoundsMap.last().top - nameBoundsMap.first().top) /
+                                (nameBoundsMap.size - 1)
+                            (nameTop + avgRowHeight).coerceAtMost(bitmap.height)
+                        } else bitmap.height
 
-                    // Find the largest vertical gap between consecutive text blocks
-                    var gapTop = nameBottom
-                    var gapBottom = exerciseEnd
-                    var bestGap = 0
-                    var prevBottom = nameBottom
-                    for (line in bodyLines) {
-                        val lineTop = line.boundingBox?.top ?: continue
-                        val lineBottom = line.boundingBox?.bottom ?: continue
-                        val gap = lineTop - prevBottom
-                        if (gap > bestGap) {
-                            bestGap = gap; gapTop = prevBottom; gapBottom = lineTop
-                        }
-                        if (lineBottom > prevBottom) prevBottom = lineBottom
-                    }
-                    // Also check the gap after the last text line
-                    val trailingGap = exerciseEnd - prevBottom
-                    if (trailingGap > bestGap) {
-                        gapTop = prevBottom; gapBottom = exerciseEnd
-                        bestGap = trailingGap
-                    }
+                    val cropTop    = nameTop.coerceIn(0, bitmap.height - 1)
+                    val cropHeight = (exerciseEnd - nameTop).coerceIn(1, bitmap.height - cropTop)
+                    val cropWidth  = nameLeft.coerceIn(1, bitmap.width)
 
-                    // Only crop if the diagram gap is at least 5% of image height
-                    if (bestGap < bitmap.height / 20) return@map null
-
-                    val clampedTop = gapTop.coerceIn(0, bitmap.height - 1)
-                    val clampedHeight = (gapBottom - gapTop).coerceIn(1, bitmap.height - clampedTop)
-                    val crop = Bitmap.createBitmap(bitmap, 0, clampedTop, bitmap.width, clampedHeight)
+                    val crop = Bitmap.createBitmap(bitmap, 0, cropTop, cropWidth, cropHeight)
                     if (crop.width > 1200) {
                         val scale = 1200f / crop.width
                         Bitmap.createScaledBitmap(crop, 1200, (crop.height * scale).toInt(), true)
@@ -457,6 +438,8 @@ fun ExerciseScanResultScreen(
             }
         } catch (_: Exception) {
             exerciseCrops = List(blocks.size) { null }
+        } finally {
+            cropsLoading = false
         }
     }
 
@@ -495,7 +478,7 @@ fun ExerciseScanResultScreen(
                                 onDone = onDone
                             )
                         },
-                        enabled = selected.isNotEmpty() && !isSaving,
+                        enabled = selected.isNotEmpty() && !isSaving && !cropsLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp)
@@ -558,6 +541,7 @@ fun ExerciseScanResultScreen(
                     ExerciseBlockCard(
                         block = blocks[idx],
                         cropBitmap = exerciseCrops.getOrNull(idx),
+                        cropsLoading = cropsLoading,
                         isSelected = idx in selected,
                         onToggle = {
                             selected = if (idx in selected) selected - idx else selected + idx
@@ -574,6 +558,7 @@ fun ExerciseScanResultScreen(
 private fun ExerciseBlockCard(
     block: ParsedExerciseBlock,
     cropBitmap: Bitmap?,
+    cropsLoading: Boolean,
     isSelected: Boolean,
     onToggle: () -> Unit
 ) {
@@ -630,7 +615,10 @@ private fun ExerciseBlockCard(
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
-                if (cropBitmap != null) {
+                if (cropsLoading) {
+                    Spacer(Modifier.height(8.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else if (cropBitmap != null) {
                     Spacer(Modifier.height(8.dp))
                     Surface(
                         shape = MaterialTheme.shapes.small,
