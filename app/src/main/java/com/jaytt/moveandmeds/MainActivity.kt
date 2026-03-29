@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
         requestActivityRecognitionPermission()
 
         val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
+        val disclaimerAccepted = prefs.getBoolean("disclaimer_accepted", false)
         val onboardingDone = prefs.getBoolean("onboarding_done", false)
 
         // Check exact alarm and store flag
@@ -43,15 +44,23 @@ class MainActivity : ComponentActivity() {
             prefs.edit().putBoolean("exact_alarm_denied", denied).apply()
         }
 
-        val startDestination = if (onboardingDone) Screen.Medicines.route else Screen.Onboarding.route
+        val startDestination = when {
+            !disclaimerAccepted -> Screen.Disclaimer.route
+            !onboardingDone -> Screen.Onboarding.route
+            else -> Screen.Medicines.route
+        }
 
         setContent {
             MoveAndMedsTheme {
                 NavGraph(
                     startDestination = startDestination,
+                    onDisclaimerAccepted = {
+                        prefs.edit().putBoolean("disclaimer_accepted", true).apply()
+                    },
                     onOnboardingFinished = {
                         prefs.edit().putBoolean("onboarding_done", true).apply()
-                    }
+                    },
+                    onDeclineDisclaimer = { finish() }
                 )
             }
         }

@@ -1,6 +1,11 @@
 package com.jaytt.moveandmeds.ui.info
 
+import android.graphics.Bitmap
+import android.graphics.Matrix
+import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -8,12 +13,15 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import java.io.File
+import java.io.FileOutputStream
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,6 +51,42 @@ fun ScannerScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val imageCaptureRef = remember { mutableStateOf<ImageCapture?>(null) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        isProcessing = true
+        try {
+            // Copy to cache so the scan result screen can access the image
+            val tempFile = File(context.cacheDir, "exercise_scan_temp.jpg")
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    tempFile.outputStream().use { output -> input.copyTo(output) }
+                }
+            }
+            val inputImage = InputImage.fromFilePath(context, uri)
+            TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                .process(inputImage)
+                .addOnSuccessListener { visionText ->
+                    isProcessing = false
+                    val fullText = visionText.text
+                    if (fullText.isBlank()) {
+                        errorMessage = "No text found in image."
+                    } else {
+                        val encoded = URLEncoder.encode(fullText, StandardCharsets.UTF_8.name())
+                        onScanResult(encoded)
+                    }
+                }
+                .addOnFailureListener { e ->
+                    isProcessing = false
+                    errorMessage = "Text recognition failed: ${e.message}"
+                }
+        } catch (e: Exception) {
+            isProcessing = false
+            errorMessage = "Could not read image: ${e.message}"
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -121,13 +165,30 @@ fun ScannerScreen(
                 }
             }
 
-            // Capture button
+            // Capture + gallery buttons
             if (!isProcessing) {
-                Box(
+                Row(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 40.dp)
+                        .padding(bottom = 40.dp),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    FilledIconButton(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        modifier = Modifier.size(56.dp),
+                        shape = CircleShape,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Photo,
+                            contentDescription = "Pick from gallery",
+                            modifier = Modifier.size(26.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
                     FilledIconButton(
                         onClick = {
                             val capture = imageCaptureRef.value ?: return@FilledIconButton
@@ -136,40 +197,44 @@ fun ScannerScreen(
                                 ContextCompat.getMainExecutor(context),
                                 object : ImageCapture.OnImageCapturedCallback() {
                                     override fun onCaptureSuccess(imageProxy: ImageProxy) {
-                                        val mediaImage = imageProxy.image
-                                        if (mediaImage == null) {
+                                        try {
+                                            val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                                            val bitmap = imageProxy.toBitmap()
                                             imageProxy.close()
+                                            val matrix = Matrix()
+                                            if (rotationDegrees != 0) matrix.postRotate(rotationDegrees.toFloat())
+                                            val rotated = if (rotationDegrees != 0)
+                                                Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                                            else bitmap
+                                            val tempFile = File(context.cacheDir, "exercise_scan_temp.jpg")
+                                            FileOutputStream(tempFile).use { out ->
+                                                rotated.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                                            }
+                                            val inputImage = InputImage.fromBitmap(rotated, 0)
+                                            TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                                                .process(inputImage)
+                                                .addOnSuccessListener { visionText ->
+                                                    isProcessing = false
+                                                    val fullText = visionText.text
+                                                    if (fullText.isBlank()) {
+                                                        errorMessage = "No text found in image. Try again with better lighting."
+                                                    } else {
+                                                        val encoded = URLEncoder.encode(
+                                                            fullText,
+                                                            StandardCharsets.UTF_8.name()
+                                                        )
+                                                        onScanResult(encoded)
+                                                    }
+                                                }
+                                                .addOnFailureListener { e ->
+                                                    isProcessing = false
+                                                    errorMessage = "Text recognition failed: ${e.message}"
+                                                }
+                                        } catch (e: Exception) {
                                             isProcessing = false
                                             errorMessage = "Could not read image from camera."
-                                            return
                                         }
-                                        val inputImage = InputImage.fromMediaImage(
-                                            mediaImage,
-                                            imageProxy.imageInfo.rotationDegrees
-                                        )
-                                        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                                            .process(inputImage)
-                                            .addOnSuccessListener { visionText ->
-                                                imageProxy.close()
-                                                isProcessing = false
-                                                val fullText = visionText.text
-                                                if (fullText.isBlank()) {
-                                                    errorMessage = "No text found in image. Try again with better lighting."
-                                                } else {
-                                                    val encoded = URLEncoder.encode(
-                                                        fullText,
-                                                        StandardCharsets.UTF_8.name()
-                                                    )
-                                                    onScanResult(encoded)
-                                                }
-                                            }
-                                            .addOnFailureListener { e ->
-                                                imageProxy.close()
-                                                isProcessing = false
-                                                errorMessage = "Text recognition failed: ${e.message}"
-                                            }
                                     }
-
                                     override fun onError(exception: ImageCaptureException) {
                                         isProcessing = false
                                         errorMessage = "Capture failed: ${exception.message}"

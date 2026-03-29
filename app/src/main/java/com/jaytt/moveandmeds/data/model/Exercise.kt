@@ -15,5 +15,6 @@ data class Exercise(
     val reminderType: String = "timed",
     val intervalMinutes: Int = 60,
     val intervalStartHour: Int = 8,
-    val intervalEndHour: Int = 22
+    val intervalEndHour: Int = 22,
+    val imagePath: String? = null
 )

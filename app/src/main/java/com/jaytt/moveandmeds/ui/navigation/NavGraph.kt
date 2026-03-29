@@ -3,6 +3,7 @@ package com.jaytt.moveandmeds.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material3.Icon
@@ -23,6 +24,8 @@ import com.jaytt.moveandmeds.ui.exercise.ExerciseDetailScreen
 import com.jaytt.moveandmeds.ui.exercises.ExerciseScanResultScreen
 import com.jaytt.moveandmeds.ui.exercises.ExercisesScreen
 import com.jaytt.moveandmeds.ui.history.HistoryScreen
+import com.jaytt.moveandmeds.ui.history.LogScreen
+import com.jaytt.moveandmeds.ui.onboarding.DisclaimerScreen
 import com.jaytt.moveandmeds.ui.info.InfoScreen
 import com.jaytt.moveandmeds.ui.info.ScannerScreen
 import com.jaytt.moveandmeds.ui.info.ScanResultScreen
@@ -34,6 +37,7 @@ import com.jaytt.moveandmeds.ui.privacy.PrivacyPolicyScreen
 import com.jaytt.moveandmeds.ui.settings.SettingsScreen
 
 sealed class Screen(val route: String) {
+    object Disclaimer : Screen("disclaimer")
     object Onboarding : Screen("onboarding")
     object Medicines : Screen("medicines")
     object Exercises : Screen("exercises")
@@ -81,6 +85,7 @@ sealed class Screen(val route: String) {
             return "exercise_detail/-1?prefillName=$encName&prefillSets=$encSets&prefillReps=$encReps&prefillReminderType=$prefillReminderType&prefillIntervalMinutes=$prefillIntervalMinutes"
         }
     }
+    object Log : Screen("log")
     object History : Screen("history/{itemType}/{itemId}/{itemName}") {
         fun createRoute(itemType: String, itemId: Int, itemName: String) =
             "history/$itemType/$itemId/${itemName.replace("/", "_")}"
@@ -113,13 +118,16 @@ private val bottomNavRoutes = setOf(
     Screen.Medicines.route,
     Screen.Exercises.route,
     Screen.Info.route,
-    Screen.InfoWithPrefill.route
+    Screen.InfoWithPrefill.route,
+    Screen.Log.route
 )
 
 @Composable
 fun NavGraph(
     startDestination: String = Screen.Medicines.route,
-    onOnboardingFinished: () -> Unit = {}
+    onDisclaimerAccepted: () -> Unit = {},
+    onOnboardingFinished: () -> Unit = {},
+    onDeclineDisclaimer: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -170,6 +178,19 @@ fun NavGraph(
                         icon = { Icon(Icons.Default.Info, contentDescription = "Contact Information") },
                         label = { Text("Contacts") }
                     )
+                    NavigationBarItem(
+                        selected = currentRoute == Screen.Log.route,
+                        onClick = {
+                            if (currentRoute != Screen.Log.route) {
+                                navController.navigate(Screen.Log.route) {
+                                    popUpTo(Screen.Medicines.route) { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                            }
+                        },
+                        icon = { Icon(Icons.Default.History, contentDescription = "Activity Log") },
+                        label = { Text("Log") }
+                    )
                 }
             }
         }
@@ -179,6 +200,18 @@ fun NavGraph(
             startDestination = startDestination,
             modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
+            composable(Screen.Disclaimer.route) {
+                DisclaimerScreen(
+                    onAccept = {
+                        onDisclaimerAccepted()
+                        navController.navigate(Screen.Onboarding.route) {
+                            popUpTo(Screen.Disclaimer.route) { inclusive = true }
+                        }
+                    },
+                    onDecline = onDeclineDisclaimer
+                )
+            }
+
             composable(Screen.Onboarding.route) {
                 OnboardingScreen(onFinished = {
                     onOnboardingFinished()
@@ -301,15 +334,16 @@ fun NavGraph(
                 ExerciseScanResultScreen(
                     encodedText = encodedText,
                     onBack = { navController.popBackStack() },
-                    onAddExercise = { name, sets, reps, notes, reminderType, intervalMinutes ->
-                        val route = Screen.ExerciseDetailPrefillInterval.createRoute(
-                            name, sets, reps, reminderType, intervalMinutes
-                        )
-                        navController.navigate(route) {
+                    onDone = {
+                        navController.navigate(Screen.Exercises.route) {
                             popUpTo(Screen.Exercises.route) { inclusive = false }
                         }
                     }
                 )
+            }
+
+            composable(Screen.Log.route) {
+                LogScreen()
             }
 
             composable(Screen.Settings.route) {

@@ -5,11 +5,13 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 data class RecoveryMilestone(val day: Int, val description: String)
+data class UserMilestone(val date: LocalDate, val label: String)
 
 object RecoveryHelper {
 
     const val PREFS_NAME = "app_prefs"
     private const val KEY_RECOVERY_START = "recovery_start_date"
+    private const val KEY_USER_MILESTONES = "user_milestones"
 
     private val milestones = listOf(
         RecoveryMilestone(3, "your first major steps"),
@@ -41,6 +43,24 @@ object RecoveryHelper {
         } else {
             prefs.edit().putLong(KEY_RECOVERY_START, date.toEpochDay()).apply()
         }
+    }
+
+    fun getUserMilestones(context: Context): List<UserMilestone> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val set = prefs.getStringSet(KEY_USER_MILESTONES, emptySet()) ?: emptySet()
+        return set.mapNotNull { entry ->
+            val parts = entry.split("|", limit = 2)
+            if (parts.size == 2) {
+                val epochDay = parts[0].toLongOrNull() ?: return@mapNotNull null
+                UserMilestone(LocalDate.ofEpochDay(epochDay), parts[1])
+            } else null
+        }.sortedBy { it.date }
+    }
+
+    fun saveUserMilestones(context: Context, milestones: List<UserMilestone>) {
+        val set = milestones.map { "${it.date.toEpochDay()}|${it.label}" }.toSet()
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putStringSet(KEY_USER_MILESTONES, set).apply()
     }
 
     fun getMotivationalMessage(startDate: LocalDate): String {

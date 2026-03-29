@@ -1,6 +1,8 @@
 package com.jaytt.moveandmeds.ui.exercise
 
 import android.app.TimePickerDialog
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -13,6 +15,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,6 +41,7 @@ fun ExerciseDetailScreen(
     var sets by remember { mutableStateOf(prefillSets ?: "") }
     var reps by remember { mutableStateOf(prefillReps ?: "") }
     var notes by remember { mutableStateOf("") }
+    var imagePath by remember { mutableStateOf<String?>(null) }
     var times by remember { mutableStateOf<List<Pair<Int, Int>>>(emptyList()) }
     var daysOfWeek by remember { mutableStateOf(setOf(1, 2, 3, 4, 5, 6, 7)) }
     var loaded by remember { mutableStateOf(false) }
@@ -57,6 +62,7 @@ fun ExerciseDetailScreen(
                 sets = it.exercise.sets
                 reps = it.exercise.reps
                 notes = it.exercise.notes
+                imagePath = it.exercise.imagePath
                 times = it.times.map { t -> t.hour to t.minute }
                 daysOfWeek = it.exercise.daysOfWeek.split(",")
                     .mapNotNull { d -> d.trim().toIntOrNull() }.toSet()
@@ -135,6 +141,25 @@ fun ExerciseDetailScreen(
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2
                 )
+            }
+            item {
+                imagePath?.let { path ->
+                    val bitmap = remember(path) {
+                        runCatching { BitmapFactory.decodeFile(path) }.getOrNull()
+                    }
+                    bitmap?.let {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Image(
+                                bitmap = it.asImageBitmap(),
+                                contentDescription = "Exercise illustration",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 300.dp),
+                                contentScale = ContentScale.FillWidth
+                            )
+                        }
+                    }
+                }
             }
             item {
                 Text("Active days", style = MaterialTheme.typography.labelLarge)
@@ -251,6 +276,7 @@ fun ExerciseDetailScreen(
                                 intervalMinutes = intervalMinutes,
                                 intervalStartHour = intervalStartHour,
                                 intervalEndHour = intervalEndHour,
+                                imagePath = imagePath,
                                 onDone = onBack
                             )
                         }

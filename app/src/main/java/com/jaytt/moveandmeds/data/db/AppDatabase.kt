@@ -24,7 +24,7 @@ import com.jaytt.moveandmeds.data.model.ReminderHistory
         ReminderHistory::class,
         ContactInfo::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -130,6 +130,12 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE exercises ADD COLUMN intervalMinutes INTEGER NOT NULL DEFAULT 60")
                 database.execSQL("ALTER TABLE exercises ADD COLUMN intervalStartHour INTEGER NOT NULL DEFAULT 8")
                 database.execSQL("ALTER TABLE exercises ADD COLUMN intervalEndHour INTEGER NOT NULL DEFAULT 22")
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE exercises ADD COLUMN imagePath TEXT")
             }
         }
     }

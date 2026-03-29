@@ -1,6 +1,6 @@
 # MoveAndMeds
 
-Android health reminder app with movement interval reminders and daily medicine reminders.
+Android health reminder app — medicine reminders, exercise reminders, contact info storage, and activity logging.
 
 ## Project Info
 
@@ -11,8 +11,8 @@ Android health reminder app with movement interval reminders and daily medicine 
 
 ## Current Version
 
-- **versionName:** 1.2
-- **versionCode:** 4 (next release must use 5 or higher)
+- **versionName:** 1.8
+- **versionCode:** 12 (next release must use 13 or higher)
 
 ## Build & Release
 
@@ -37,11 +37,31 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## Architecture
 
-- **Room** — local database (medicines, medicine times, movement settings)
+- **Room** — local database (medicines, medicine times, exercises, exercise times, movement settings, contacts, reminder history)
 - **AlarmManager** (`setExactAndAllowWhileIdle`) — reliable reminders in Doze mode
 - **Hilt** — dependency injection
-- **Navigation Compose** — single Activity, three screens (Home, MovementSettings, MedicineDetail)
+- **Navigation Compose** — single Activity with bottom nav (Medicines, Exercises, Contacts, Log)
 - **BootReceiver** — reschedules all alarms after device reboot
+- **ML Kit Text Recognition + CameraX** — OCR scanner for pre-filling medicines, exercises, and contacts
+
+## Screens
+
+Bottom nav tabs:
+- **Medicines** — list of medicines with reminders; tap to edit/view detail
+- **Exercises** — list of exercises with interval or daily reminders; tap to edit/view detail
+- **Contacts (Info)** — store emergency/care contacts
+- **Log** — activity log of all reminder events
+
+Detail/modal screens:
+- **MedicineDetail** — add/edit medicine, set times-per-day + auto-spaced reminder times
+- **ExerciseDetail** — add/edit exercise (sets/reps), reminder type (interval or daily times)
+- **History** — per-item reminder history (medicines or exercises)
+- **Settings** — app settings + link to Privacy Policy
+- **PrivacyPolicy** — static privacy policy screen
+- **Scanner** — shared CameraX OCR scanner; routes results to medicines, exercises, or contacts
+- **MedicineScanResult / ExerciseScanResult / ScanResult** — review OCR output before confirming
+- **Onboarding** — first-run walkthrough
+- **Disclaimer** — first-run medical disclaimer (must accept to proceed)
 
 ## Key Source Locations
 
@@ -49,9 +69,22 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 app/src/main/java/com/jaytt/moveandmeds/
 ├── alarm/          # AlarmScheduler, AlarmReceiver, BootReceiver
 ├── data/           # Room DB, DAOs, models, repositories
-├── di/             # Hilt AppModule
+├── di/             # Hilt AppModule, AlarmModule
 ├── notification/   # NotificationHelper (channels + builders)
-└── ui/             # Compose screens and ViewModels
+├── util/           # RecoveryHelper, StepCountHelper, CsvExporter
+└── ui/
+    ├── exercise/       # ExerciseDetailScreen, ExerciseViewModel
+    ├── exercises/      # ExercisesScreen, ExercisesViewModel, ExerciseScanResultScreen
+    ├── history/        # HistoryScreen, HistoryViewModel, LogScreen
+    ├── info/           # InfoScreen, InfoViewModel, ScannerScreen, ScanResultScreen
+    ├── medicine/       # MedicineDetailScreen, MedicineViewModel
+    ├── medicines/      # MedicinesScreen, MedicinesViewModel, MedicineScanResultScreen
+    ├── movement/       # MovementViewModel
+    ├── navigation/     # NavGraph (Screen sealed class + NavHost)
+    ├── onboarding/     # OnboardingScreen, DisclaimerScreen
+    ├── privacy/        # PrivacyPolicyScreen
+    ├── settings/       # SettingsScreen
+    └── theme/          # Theme.kt
 ```
 
 ## Play Store

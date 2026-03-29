@@ -40,6 +40,8 @@ class AlarmScheduler @Inject constructor(private val context: Context) {
         const val TYPE_MISSED_CHECK = "missed_check"
         const val TYPE_DISMISSED = "dismissed"
         const val EXTRA_SCHEDULED_TIME = "scheduled_time"
+        const val EXTRA_EXERCISE_NOTES = "exercise_notes"
+        const val EXTRA_EXERCISE_IMAGE_PATH = "exercise_image_path"
         const val EXTRA_INTERVAL_MINUTES = "interval_minutes_ex"
         const val EXTRA_INTERVAL_START_HOUR = "interval_start_hour"
         const val EXTRA_INTERVAL_END_HOUR = "interval_end_hour"
@@ -69,10 +71,6 @@ class AlarmScheduler @Inject constructor(private val context: Context) {
     fun scheduleMovementAlarm(settings: MovementSettings) {
         cancelMovementAlarm()
         if (!settings.isEnabled) return
-
-        val now = Calendar.getInstance()
-        val currentHour = now.get(Calendar.HOUR_OF_DAY)
-        if (currentHour >= settings.endHour) return
 
         val triggerAt = System.currentTimeMillis() + settings.intervalMinutes * 60_000L
         val intent = Intent(context, AlarmReceiver::class.java).apply {
@@ -147,6 +145,8 @@ class AlarmScheduler @Inject constructor(private val context: Context) {
                     putExtra(EXTRA_EXERCISE_NAME, ewt.exercise.name)
                     putExtra(EXTRA_EXERCISE_SETS, ewt.exercise.sets)
                     putExtra(EXTRA_EXERCISE_REPS, ewt.exercise.reps)
+                    putExtra(EXTRA_EXERCISE_NOTES, ewt.exercise.notes)
+                    putExtra(EXTRA_EXERCISE_IMAGE_PATH, ewt.exercise.imagePath)
                     putExtra(EXTRA_HOUR, time.hour)
                     putExtra(EXTRA_MINUTE, time.minute)
                     putExtra(EXTRA_ITEM_ID, ewt.exercise.id)
@@ -171,6 +171,8 @@ class AlarmScheduler @Inject constructor(private val context: Context) {
             putExtra(EXTRA_EXERCISE_NAME, exercise.name)
             putExtra(EXTRA_EXERCISE_SETS, exercise.sets)
             putExtra(EXTRA_EXERCISE_REPS, exercise.reps)
+            putExtra(EXTRA_EXERCISE_NOTES, exercise.notes)
+            putExtra(EXTRA_EXERCISE_IMAGE_PATH, exercise.imagePath)
             putExtra(EXTRA_ITEM_ID, exercise.id)
             putExtra(EXTRA_INTERVAL_MINUTES, exercise.intervalMinutes)
             putExtra(EXTRA_INTERVAL_START_HOUR, exercise.intervalStartHour)

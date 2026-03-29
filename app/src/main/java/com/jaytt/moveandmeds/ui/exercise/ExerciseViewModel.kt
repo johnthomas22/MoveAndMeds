@@ -31,6 +31,7 @@ class ExerciseViewModel @Inject constructor(
         intervalMinutes: Int = 60,
         intervalStartHour: Int = 8,
         intervalEndHour: Int = 22,
+        imagePath: String? = null,
         onDone: () -> Unit
     ) {
         viewModelScope.launch {
@@ -44,7 +45,8 @@ class ExerciseViewModel @Inject constructor(
                 reminderType = reminderType,
                 intervalMinutes = intervalMinutes,
                 intervalStartHour = intervalStartHour,
-                intervalEndHour = intervalEndHour
+                intervalEndHour = intervalEndHour,
+                imagePath = imagePath
             )
             if (id != null) alarmScheduler.cancelExerciseAlarms(id)
             val newId = repository.saveExercise(exercise, times.map { (h, m) ->

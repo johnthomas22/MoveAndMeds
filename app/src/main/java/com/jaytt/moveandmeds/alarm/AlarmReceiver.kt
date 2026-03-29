@@ -97,6 +97,7 @@ class AlarmReceiver : BroadcastReceiver() {
                         val userAlreadyMoved = stepsSinceBaseline >= stepThreshold
                         if (!userAlreadyMoved) {
                             NotificationHelper.showMovementNotification(context)
+                            NotificationHelper.playAlarmSound(context)
                         }
                     }
 
@@ -195,6 +196,8 @@ class AlarmReceiver : BroadcastReceiver() {
                 val name = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NAME) ?: ""
                 val sets = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_SETS) ?: ""
                 val reps = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_REPS) ?: ""
+                val notes = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NOTES) ?: ""
+                val imagePath = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_IMAGE_PATH)
                 val hour = intent.getIntExtra(AlarmScheduler.EXTRA_HOUR, 8)
                 val minute = intent.getIntExtra(AlarmScheduler.EXTRA_MINUTE, 0)
                 val itemId = intent.getIntExtra(AlarmScheduler.EXTRA_ITEM_ID, 0)
@@ -204,7 +207,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 val shouldShow = isTodayInDays(daysOfWeek)
                 if (shouldShow) {
                     NotificationHelper.showExerciseNotification(
-                        context, name, sets, reps, alarmId, alarmId, hour, minute, itemId, daysOfWeek, scheduledTime
+                        context, name, sets, reps, notes, imagePath, alarmId, alarmId, hour, minute, itemId, daysOfWeek, scheduledTime
                     )
                     val pendingResult = goAsync()
                     CoroutineScope(Dispatchers.IO).launch {
@@ -241,6 +244,8 @@ class AlarmReceiver : BroadcastReceiver() {
                     putExtra(AlarmScheduler.EXTRA_EXERCISE_NAME, name)
                     putExtra(AlarmScheduler.EXTRA_EXERCISE_SETS, sets)
                     putExtra(AlarmScheduler.EXTRA_EXERCISE_REPS, reps)
+                    putExtra(AlarmScheduler.EXTRA_EXERCISE_NOTES, notes)
+                    putExtra(AlarmScheduler.EXTRA_EXERCISE_IMAGE_PATH, imagePath)
                     putExtra(AlarmScheduler.EXTRA_HOUR, hour)
                     putExtra(AlarmScheduler.EXTRA_MINUTE, minute)
                     putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
@@ -262,13 +267,15 @@ class AlarmReceiver : BroadcastReceiver() {
                 val name = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NAME) ?: ""
                 val sets = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_SETS) ?: ""
                 val reps = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_REPS) ?: ""
+                val notes = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NOTES) ?: ""
+                val imagePath = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_IMAGE_PATH)
                 val itemId = intent.getIntExtra(AlarmScheduler.EXTRA_ITEM_ID, 0)
                 val intervalMinutes = intent.getIntExtra(AlarmScheduler.EXTRA_INTERVAL_MINUTES, 60)
                 val startHour = intent.getIntExtra(AlarmScheduler.EXTRA_INTERVAL_START_HOUR, 8)
                 val endHour = intent.getIntExtra(AlarmScheduler.EXTRA_INTERVAL_END_HOUR, 22)
 
                 NotificationHelper.showExerciseNotification(
-                    context, name, sets, reps, alarmId, alarmId, 0, 0, itemId, "1,2,3,4,5,6,7"
+                    context, name, sets, reps, notes, imagePath, alarmId, alarmId, 0, 0, itemId, "1,2,3,4,5,6,7"
                 )
 
                 val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -280,6 +287,8 @@ class AlarmReceiver : BroadcastReceiver() {
                         putExtra(AlarmScheduler.EXTRA_EXERCISE_NAME, name)
                         putExtra(AlarmScheduler.EXTRA_EXERCISE_SETS, sets)
                         putExtra(AlarmScheduler.EXTRA_EXERCISE_REPS, reps)
+                        putExtra(AlarmScheduler.EXTRA_EXERCISE_NOTES, notes)
+                        putExtra(AlarmScheduler.EXTRA_EXERCISE_IMAGE_PATH, imagePath)
                         putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
                         putExtra(AlarmScheduler.EXTRA_INTERVAL_MINUTES, intervalMinutes)
                         putExtra(AlarmScheduler.EXTRA_INTERVAL_START_HOUR, startHour)
@@ -325,6 +334,8 @@ class AlarmReceiver : BroadcastReceiver() {
                         val name = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NAME) ?: ""
                         val sets = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_SETS) ?: ""
                         val reps = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_REPS) ?: ""
+                        val notes = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NOTES) ?: ""
+                        val imagePath = intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_IMAGE_PATH)
                         val hour = intent.getIntExtra(AlarmScheduler.EXTRA_HOUR, 8)
                         val minute = intent.getIntExtra(AlarmScheduler.EXTRA_MINUTE, 0)
                         val itemId = intent.getIntExtra(AlarmScheduler.EXTRA_ITEM_ID, 0)
@@ -335,6 +346,8 @@ class AlarmReceiver : BroadcastReceiver() {
                             putExtra(AlarmScheduler.EXTRA_EXERCISE_NAME, name)
                             putExtra(AlarmScheduler.EXTRA_EXERCISE_SETS, sets)
                             putExtra(AlarmScheduler.EXTRA_EXERCISE_REPS, reps)
+                            putExtra(AlarmScheduler.EXTRA_EXERCISE_NOTES, notes)
+                            putExtra(AlarmScheduler.EXTRA_EXERCISE_IMAGE_PATH, imagePath)
                             putExtra(AlarmScheduler.EXTRA_HOUR, hour)
                             putExtra(AlarmScheduler.EXTRA_MINUTE, minute)
                             putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
@@ -423,7 +436,8 @@ class AlarmReceiver : BroadcastReceiver() {
                 AppDatabase.MIGRATION_4_5,
                 AppDatabase.MIGRATION_5_6,
                 AppDatabase.MIGRATION_6_7,
-                AppDatabase.MIGRATION_7_8
+                AppDatabase.MIGRATION_7_8,
+                AppDatabase.MIGRATION_8_9
             )
             .build()
     }

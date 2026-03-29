@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "movement_settings")
 data class MovementSettings(
     @PrimaryKey val id: Int = 1,
-    val intervalMinutes: Int = 60,
+    val intervalMinutes: Int = 30,
     val isEnabled: Boolean = false,
     val startHour: Int = 8,
     val endHour: Int = 22,

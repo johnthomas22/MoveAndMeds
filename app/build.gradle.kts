@@ -14,8 +14,8 @@ android {
         applicationId = "com.jaytt.moveandmeds"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.6"
+        versionCode = 16
+        versionName = "2.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -48,6 +48,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

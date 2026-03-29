@@ -20,6 +20,11 @@
         android:theme="@style/Theme.MoveAndMeds">
 
         <activity
+            android:name=".ExerciseInfoActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MoveAndMeds.Dialog"/>
+
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.MoveAndMeds">

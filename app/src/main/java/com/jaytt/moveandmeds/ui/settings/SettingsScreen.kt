@@ -1,12 +1,15 @@
 package com.jaytt.moveandmeds.ui.settings
 
+import android.os.Build
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,10 +17,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.jaytt.moveandmeds.BuildConfig
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jaytt.moveandmeds.data.model.MovementSettings
 import com.jaytt.moveandmeds.ui.movement.MovementViewModel
 import com.jaytt.moveandmeds.util.RecoveryHelper
+import com.jaytt.moveandmeds.util.UserMilestone
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -37,7 +42,13 @@ fun SettingsScreen(
     var recoveryStartDate by remember {
         mutableStateOf(RecoveryHelper.getRecoveryStartDate(context))
     }
+    var userMilestones by remember {
+        mutableStateOf(RecoveryHelper.getUserMilestones(context))
+    }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showMilestonePicker by remember { mutableStateOf(false) }
+    var milestoneLabel by remember { mutableStateOf("") }
+    var milestonePickerDate by remember { mutableStateOf<LocalDate?>(null) }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -63,6 +74,46 @@ fun SettingsScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    if (showMilestonePicker) {
+        val datePickerState = rememberDatePickerState()
+        AlertDialog(
+            onDismissRequest = { showMilestonePicker = false; milestoneLabel = "" },
+            title = { Text("Add Milestone") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = milestoneLabel,
+                        onValueChange = { milestoneLabel = it },
+                        label = { Text("Label") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    DatePicker(state = datePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = milestoneLabel.isNotBlank() && datePickerState.selectedDateMillis != null,
+                    onClick = {
+                        val date = datePickerState.selectedDateMillis?.let {
+                            Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                        }
+                        if (date != null) {
+                            val updated = (userMilestones + UserMilestone(date, milestoneLabel.trim())).sortedBy { it.date }
+                            RecoveryHelper.saveUserMilestones(context, updated)
+                            userMilestones = updated
+                        }
+                        showMilestonePicker = false
+                        milestoneLabel = ""
+                    }
+                ) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMilestonePicker = false; milestoneLabel = "" }) { Text("Cancel") }
+            }
+        )
     }
 
     Scaffold(
@@ -148,6 +199,21 @@ fun SettingsScreen(
                 Text("Save Movement Settings")
             }
 
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Text(
+                    text = "Tip: the alarm plays your phone's alarm ringtone at full alarm volume. " +
+                        "To use Ride of the Valkyries (or any music), download it and set it as " +
+                        "your alarm sound in phone Settings → Sounds → Alarm sound.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+
             HorizontalDivider()
 
             // Recovery section
@@ -195,6 +261,51 @@ fun SettingsScreen(
                 }
             }
 
+            // User milestones
+            val formatter2 = DateTimeFormatter.ofPattern("d MMM yyyy")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "Milestones",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = { showMilestonePicker = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add milestone")
+                }
+            }
+            if (userMilestones.isEmpty()) {
+                Text(
+                    "No milestones added yet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                userMilestones.forEach { milestone ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(milestone.label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Text(milestone.date.format(formatter2), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = {
+                                val updated = userMilestones - milestone
+                                RecoveryHelper.saveUserMilestones(context, updated)
+                                userMilestones = updated
+                            }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete milestone")
+                            }
+                        }
+                    }
+                }
+            }
+
             HorizontalDivider()
 
             // About section header
@@ -203,6 +314,21 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             Card(
                 onClick = onPrivacyPolicy,
