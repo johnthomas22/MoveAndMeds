@@ -362,6 +362,72 @@ class AlarmReceiver : BroadcastReceiver() {
                 }
             }
 
+            AlarmScheduler.TYPE_TAKEN -> {
+                val originalType = intent.getStringExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE) ?: return
+                val itemId = intent.getIntExtra(AlarmScheduler.EXTRA_ITEM_ID, 0)
+                val itemName = when (originalType) {
+                    AlarmScheduler.TYPE_MEDICINE -> intent.getStringExtra(AlarmScheduler.EXTRA_MEDICINE_NAME) ?: ""
+                    AlarmScheduler.TYPE_EXERCISE -> intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NAME) ?: ""
+                    else -> ""
+                }
+                val scheduledTime = intent.getLongExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, System.currentTimeMillis())
+
+                context.getSystemService(android.app.NotificationManager::class.java).cancel(alarmId)
+
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val db = openDb(context)
+                        db.historyDao().insert(
+                            ReminderHistory(
+                                itemType = originalType,
+                                itemId = itemId,
+                                itemName = itemName,
+                                scheduledTime = scheduledTime,
+                                firedTime = System.currentTimeMillis(),
+                                status = "taken_$originalType"
+                            )
+                        )
+                        db.close()
+                    } finally {
+                        pendingResult.finish()
+                    }
+                }
+            }
+
+            AlarmScheduler.TYPE_SKIPPED -> {
+                val originalType = intent.getStringExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE) ?: return
+                val itemId = intent.getIntExtra(AlarmScheduler.EXTRA_ITEM_ID, 0)
+                val itemName = when (originalType) {
+                    AlarmScheduler.TYPE_MEDICINE -> intent.getStringExtra(AlarmScheduler.EXTRA_MEDICINE_NAME) ?: ""
+                    AlarmScheduler.TYPE_EXERCISE -> intent.getStringExtra(AlarmScheduler.EXTRA_EXERCISE_NAME) ?: ""
+                    else -> ""
+                }
+                val scheduledTime = intent.getLongExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, System.currentTimeMillis())
+
+                context.getSystemService(android.app.NotificationManager::class.java).cancel(alarmId)
+
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val db = openDb(context)
+                        db.historyDao().insert(
+                            ReminderHistory(
+                                itemType = originalType,
+                                itemId = itemId,
+                                itemName = itemName,
+                                scheduledTime = scheduledTime,
+                                firedTime = System.currentTimeMillis(),
+                                status = "skipped_$originalType"
+                            )
+                        )
+                        db.close()
+                    } finally {
+                        pendingResult.finish()
+                    }
+                }
+            }
+
             AlarmScheduler.TYPE_DISMISSED -> {
                 val originalType = intent.getStringExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE) ?: return
                 val itemId = intent.getIntExtra(AlarmScheduler.EXTRA_ITEM_ID, 0)

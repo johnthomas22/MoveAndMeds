@@ -131,10 +131,27 @@ private fun LogEntry(record: ReminderHistory) {
                 )
             }
             when (record.status) {
+                "taken_medicine", "taken_exercise" -> Icon(
+                    Icons.Default.Check,
+                    contentDescription = "Taken",
+                    tint = Color(0xFF4CAF50)
+                )
+                "skipped_medicine", "skipped_exercise" -> Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = Color(0xFFFF6F00).copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        "Skipped",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE65100)
+                    )
+                }
                 "dismissed" -> Icon(
                     Icons.Default.Check,
                     contentDescription = "Dismissed",
-                    tint = Color(0xFF4CAF50)
+                    tint = Color(0xFF9E9E9E)
                 )
                 "missed" -> Surface(shape = MaterialTheme.shapes.small, color = Color(0xFFF44336).copy(alpha = 0.12f)) {
                     Text(

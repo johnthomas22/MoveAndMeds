@@ -39,6 +39,8 @@ class AlarmScheduler @Inject constructor(private val context: Context) {
         const val TYPE_SNOOZE = "snooze"
         const val TYPE_MISSED_CHECK = "missed_check"
         const val TYPE_DISMISSED = "dismissed"
+        const val TYPE_TAKEN = "taken"
+        const val TYPE_SKIPPED = "skipped"
         const val EXTRA_SCHEDULED_TIME = "scheduled_time"
         const val EXTRA_EXERCISE_NOTES = "exercise_notes"
         const val EXTRA_EXERCISE_IMAGE_PATH = "exercise_image_path"

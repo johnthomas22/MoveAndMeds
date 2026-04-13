@@ -9,6 +9,8 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
 import androidx.core.app.NotificationCompat
 import com.jaytt.moveandmeds.ExerciseInfoActivity
 import com.jaytt.moveandmeds.MainActivity
@@ -20,6 +22,8 @@ object NotificationHelper {
     const val CHANNEL_MOVEMENT = "channel_movement"
     // Separate channel so we can set alarm-volume sound (channel settings are immutable once created)
     const val CHANNEL_MOVEMENT_ALARM = "channel_movement_alarm"
+    // DND-respecting movement channel: IMPORTANCE_HIGH + vibration, no USAGE_ALARM bypass
+    const val CHANNEL_MOVEMENT_VIBRATE = "channel_movement_vibrate"
     const val CHANNEL_MEDICINE = "channel_medicine"
     const val CHANNEL_EXERCISE = "channel_exercise"
 
@@ -52,6 +56,17 @@ object NotificationHelper {
             }
         )
 
+        // DND-respecting movement channel — vibration only, no alarm-volume bypass
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_MOVEMENT_VIBRATE, "Movement Reminder (Silent)",
+                NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Vibration-only movement reminder used when Do Not Disturb is active"
+                setSound(null, null)
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 300, 150, 600)
+            }
+        )
+
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_MEDICINE, "Medicine Reminders",
                 NotificationManager.IMPORTANCE_HIGH).apply {
@@ -73,6 +88,13 @@ object NotificationHelper {
      * (Settings → Sounds → Alarm sound).
      */
     fun playAlarmSound(context: Context, durationMs: Long = 8_000L) {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        val isDnd = nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
+        if (isDnd) {
+            val vibrator = context.getSystemService(Vibrator::class.java)
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 300, 150, 600, 150, 300), -1))
+            return
+        }
         val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         val ringtone = RingtoneManager.getRingtone(context, uri) ?: return
         ringtone.audioAttributes = AudioAttributes.Builder()
@@ -86,6 +108,10 @@ object NotificationHelper {
     }
 
     fun showMovementNotification(context: Context) {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        val isDnd = nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
+        val channel = if (isDnd) CHANNEL_MOVEMENT_VIBRATE else CHANNEL_MOVEMENT_ALARM
+
         val openAppIntent = Intent(context, MainActivity::class.java)
         val openAppPi = PendingIntent.getActivity(context, 0, openAppIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -102,7 +128,7 @@ object NotificationHelper {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_MOVEMENT_ALARM)
+        val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Time to move!")
             .setContentText("Get up and move for a few minutes.")
@@ -133,22 +159,35 @@ object NotificationHelper {
         val pi = PendingIntent.getActivity(context, notifId, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
-        // Snooze action
-        val snoozeIntent = Intent(context, AlarmReceiver::class.java).apply {
-            putExtra(AlarmScheduler.EXTRA_TYPE, AlarmScheduler.TYPE_SNOOZE)
+        // Taken action
+        val takenIntent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra(AlarmScheduler.EXTRA_TYPE, AlarmScheduler.TYPE_TAKEN)
             putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
-            putExtra(AlarmScheduler.EXTRA_MEDICINE_NAME, medicineName)
-            putExtra(AlarmScheduler.EXTRA_MEDICINE_DOSAGE, dosage)
-            putExtra(AlarmScheduler.EXTRA_HOUR, hour)
-            putExtra(AlarmScheduler.EXTRA_MINUTE, minute)
-            putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
-            putExtra(AlarmScheduler.EXTRA_DAYS_OF_WEEK, daysOfWeek)
             putExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE, AlarmScheduler.TYPE_MEDICINE)
+            putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
+            putExtra(AlarmScheduler.EXTRA_MEDICINE_NAME, medicineName)
+            putExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, scheduledTime)
         }
-        val snoozePi = PendingIntent.getBroadcast(
+        val takenPi = PendingIntent.getBroadcast(
             context,
             alarmId + 50000,
-            snoozeIntent,
+            takenIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Skip action
+        val skipIntent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra(AlarmScheduler.EXTRA_TYPE, AlarmScheduler.TYPE_SKIPPED)
+            putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
+            putExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE, AlarmScheduler.TYPE_MEDICINE)
+            putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
+            putExtra(AlarmScheduler.EXTRA_MEDICINE_NAME, medicineName)
+            putExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, scheduledTime)
+        }
+        val skipPi = PendingIntent.getBroadcast(
+            context,
+            alarmId + 80000,
+            skipIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -175,7 +214,8 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(pi)
             .setDeleteIntent(dismissPi)
-            .addAction(R.drawable.ic_notification, "Snooze 10 min", snoozePi)
+            .addAction(R.drawable.ic_notification, "✓ Taken", takenPi)
+            .addAction(R.drawable.ic_notification, "✗ Skip", skipPi)
             .build()
         context.getSystemService(NotificationManager::class.java)
             .notify(notifId, notification)
@@ -210,23 +250,35 @@ object NotificationHelper {
             }
         }
 
-        // Snooze action
-        val snoozeIntent = Intent(context, AlarmReceiver::class.java).apply {
-            putExtra(AlarmScheduler.EXTRA_TYPE, AlarmScheduler.TYPE_SNOOZE)
+        // Done action
+        val takenIntent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra(AlarmScheduler.EXTRA_TYPE, AlarmScheduler.TYPE_TAKEN)
             putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
-            putExtra(AlarmScheduler.EXTRA_EXERCISE_NAME, exerciseName)
-            putExtra(AlarmScheduler.EXTRA_EXERCISE_SETS, sets)
-            putExtra(AlarmScheduler.EXTRA_EXERCISE_REPS, reps)
-            putExtra(AlarmScheduler.EXTRA_HOUR, hour)
-            putExtra(AlarmScheduler.EXTRA_MINUTE, minute)
-            putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
-            putExtra(AlarmScheduler.EXTRA_DAYS_OF_WEEK, daysOfWeek)
             putExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE, AlarmScheduler.TYPE_EXERCISE)
+            putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
+            putExtra(AlarmScheduler.EXTRA_EXERCISE_NAME, exerciseName)
+            putExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, scheduledTime)
         }
-        val snoozePi = PendingIntent.getBroadcast(
+        val takenPi = PendingIntent.getBroadcast(
             context,
             alarmId + 50000,
-            snoozeIntent,
+            takenIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Skip action
+        val skipIntent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra(AlarmScheduler.EXTRA_TYPE, AlarmScheduler.TYPE_SKIPPED)
+            putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
+            putExtra(AlarmScheduler.EXTRA_SNOOZE_ORIGINAL_TYPE, AlarmScheduler.TYPE_EXERCISE)
+            putExtra(AlarmScheduler.EXTRA_ITEM_ID, itemId)
+            putExtra(AlarmScheduler.EXTRA_EXERCISE_NAME, exerciseName)
+            putExtra(AlarmScheduler.EXTRA_SCHEDULED_TIME, scheduledTime)
+        }
+        val skipPi = PendingIntent.getBroadcast(
+            context,
+            alarmId + 80000,
+            skipIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -267,7 +319,8 @@ object NotificationHelper {
             .setContentIntent(pi)
             .setDeleteIntent(dismissPi)
             .addAction(R.drawable.ic_notification, "View Details", viewPi)
-            .addAction(R.drawable.ic_notification, "Snooze 10 min", snoozePi)
+            .addAction(R.drawable.ic_notification, "✓ Done", takenPi)
+            .addAction(R.drawable.ic_notification, "✗ Skip", skipPi)
             .build()
         context.getSystemService(NotificationManager::class.java)
             .notify(notifId, notification)

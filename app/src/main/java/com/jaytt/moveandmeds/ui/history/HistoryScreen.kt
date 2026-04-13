@@ -91,7 +91,14 @@ fun HistoryScreen(
 @Composable
 private fun HistoryItem(record: ReminderHistory) {
     val dateFormat = remember { SimpleDateFormat("EEE dd MMM yyyy, HH:mm", Locale.getDefault()) }
-    val isFired = record.status == "fired"
+    val (statusLabel, bgColor, labelColor) = when (record.status) {
+        "taken_medicine" -> Triple("Taken", Color(0xFF4CAF50).copy(alpha = 0.15f), Color(0xFF2E7D32))
+        "taken_exercise" -> Triple("Done", Color(0xFF4CAF50).copy(alpha = 0.15f), Color(0xFF2E7D32))
+        "skipped_medicine", "skipped_exercise" -> Triple("Skipped", Color(0xFFFF6F00).copy(alpha = 0.15f), Color(0xFFE65100))
+        "dismissed" -> Triple("Dismissed", Color(0xFF9E9E9E).copy(alpha = 0.15f), Color(0xFF616161))
+        "missed" -> Triple("Missed", Color(0xFFF44336).copy(alpha = 0.15f), Color(0xFFC62828))
+        else -> Triple("Fired", Color(0xFF4CAF50).copy(alpha = 0.15f), Color(0xFF2E7D32))
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -110,17 +117,13 @@ private fun HistoryItem(record: ReminderHistory) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = if (isFired) Color(0xFF4CAF50).copy(alpha = 0.15f)
-                else Color(0xFFF44336).copy(alpha = 0.15f)
-            ) {
+            Surface(shape = MaterialTheme.shapes.small, color = bgColor) {
                 Text(
-                    text = if (isFired) "Fired" else "Missed",
+                    text = statusLabel,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = if (isFired) Color(0xFF2E7D32) else Color(0xFFC62828)
+                    color = labelColor
                 )
             }
         }
