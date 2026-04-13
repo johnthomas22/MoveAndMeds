@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.jaytt.moveandmeds.BuildConfig
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jaytt.moveandmeds.data.model.MovementSettings
@@ -78,11 +80,27 @@ fun SettingsScreen(
 
     if (showMilestonePicker) {
         val datePickerState = rememberDatePickerState()
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showMilestonePicker = false; milestoneLabel = "" },
-            title = { Text("Add Milestone") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                tonalElevation = 6.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(24.dp)
+                ) {
+                    Text(
+                        "Add Milestone",
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
                     OutlinedTextField(
                         value = milestoneLabel,
                         onValueChange = { milestoneLabel = it },
@@ -90,30 +108,46 @@ fun SettingsScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    DatePicker(state = datePickerState)
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = milestoneLabel.isNotBlank() && datePickerState.selectedDateMillis != null,
-                    onClick = {
-                        val date = datePickerState.selectedDateMillis?.let {
-                            Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    DatePicker(
+                        state = datePickerState,
+                        headline = {
+                            val label = datePickerState.selectedDateMillis?.let {
+                                Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                                    .format(DateTimeFormatter.ofPattern("d MMM yyyy"))
+                            } ?: "Select date"
+                            Text(
+                                text = label,
+                                modifier = Modifier.padding(start = 24.dp, end = 12.dp, bottom = 12.dp),
+                                style = MaterialTheme.typography.titleLarge
+                            )
                         }
-                        if (date != null) {
-                            val updated = (userMilestones + UserMilestone(date, milestoneLabel.trim())).sortedBy { it.date }
-                            RecoveryHelper.saveUserMilestones(context, updated)
-                            userMilestones = updated
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { showMilestonePicker = false; milestoneLabel = "" }) {
+                            Text("Cancel")
                         }
-                        showMilestonePicker = false
-                        milestoneLabel = ""
+                        TextButton(
+                            enabled = milestoneLabel.isNotBlank() && datePickerState.selectedDateMillis != null,
+                            onClick = {
+                                val date = datePickerState.selectedDateMillis?.let {
+                                    Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                                }
+                                if (date != null) {
+                                    val updated = (userMilestones + UserMilestone(date, milestoneLabel.trim())).sortedBy { it.date }
+                                    RecoveryHelper.saveUserMilestones(context, updated)
+                                    userMilestones = updated
+                                }
+                                showMilestonePicker = false
+                                milestoneLabel = ""
+                            }
+                        ) { Text("Add") }
                     }
-                ) { Text("Add") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showMilestonePicker = false; milestoneLabel = "" }) { Text("Cancel") }
+                }
             }
-        )
+        }
     }
 
     Scaffold(
