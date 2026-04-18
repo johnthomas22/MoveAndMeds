@@ -15,3 +15,6 @@
 
 # Keep Application class
 -keep class com.jaytt.moveandmeds.ReminderApplication { *; }
+
+# PDFBox optional JP2 decoder (not included in pdfbox-android)
+-dontwarn com.gemalto.jp2.**
