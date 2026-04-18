@@ -18,4 +18,9 @@ class ExerciseRepository @Inject constructor(private val dao: ExerciseDao) {
         dao.upsertExerciseWithTimes(exercise, times)
 
     suspend fun deleteExercise(exercise: Exercise) = dao.deleteExercise(exercise)
+
+    suspend fun deleteAll() {
+        dao.deleteAllExerciseTimes()
+        dao.deleteAllExercises()
+    }
 }

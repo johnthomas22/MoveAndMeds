@@ -35,7 +35,8 @@ import java.time.format.DateTimeFormatter
 fun SettingsScreen(
     onBack: () -> Unit,
     onPrivacyPolicy: () -> Unit,
-    viewModel: MovementViewModel = hiltViewModel()
+    viewModel: MovementViewModel = hiltViewModel(),
+    settingsViewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
     var localSettings by remember(settings) { mutableStateOf(settings ?: MovementSettings()) }
@@ -51,6 +52,8 @@ fun SettingsScreen(
     var showMilestonePicker by remember { mutableStateOf(false) }
     var milestoneLabel by remember { mutableStateOf("") }
     var milestonePickerDate by remember { mutableStateOf<LocalDate?>(null) }
+    var showDeleteMedicinesDialog by remember { mutableStateOf(false) }
+    var showDeleteExercisesDialog by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -338,6 +341,70 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+
+            HorizontalDivider()
+
+            Text(
+                "Data",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            OutlinedButton(
+                onClick = { showDeleteMedicinesDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Delete All Medicines")
+            }
+
+            OutlinedButton(
+                onClick = { showDeleteExercisesDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Delete All Exercises")
+            }
+
+            if (showDeleteMedicinesDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteMedicinesDialog = false },
+                    title = { Text("Delete All Medicines?") },
+                    text = { Text("This will permanently delete all medicines and cancel all their reminders. This cannot be undone.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                settingsViewModel.deleteAllMedicines()
+                                showDeleteMedicinesDialog = false
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) { Text("Delete All") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteMedicinesDialog = false }) { Text("Cancel") }
+                    }
+                )
+            }
+
+            if (showDeleteExercisesDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteExercisesDialog = false },
+                    title = { Text("Delete All Exercises?") },
+                    text = { Text("This will permanently delete all exercises and cancel all their reminders. This cannot be undone.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                settingsViewModel.deleteAllExercises()
+                                showDeleteExercisesDialog = false
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) { Text("Delete All") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteExercisesDialog = false }) { Text("Cancel") }
+                    }
+                )
             }
 
             HorizontalDivider()

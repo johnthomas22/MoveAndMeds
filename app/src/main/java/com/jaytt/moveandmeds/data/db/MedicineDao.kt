@@ -31,6 +31,12 @@ interface MedicineDao {
     @Query("DELETE FROM medicine_times WHERE medicineId = :medicineId")
     suspend fun deleteTimesForMedicine(medicineId: Int)
 
+    @Query("DELETE FROM medicines")
+    suspend fun deleteAllMedicines()
+
+    @Query("DELETE FROM medicine_times")
+    suspend fun deleteAllMedicineTimes()
+
     @Transaction
     suspend fun upsertMedicineWithTimes(medicine: Medicine, times: List<MedicineTime>): Int {
         val id = insertMedicine(medicine).toInt()

@@ -14,8 +14,8 @@ android {
         applicationId = "com.jaytt.moveandmeds"
         minSdk = 26
         targetSdk = 35
-        versionCode = 19
-        versionName = "2.5"
+        versionCode = 20
+        versionName = "2.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -76,6 +76,7 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     implementation(libs.mlkit.text.recognition)
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)

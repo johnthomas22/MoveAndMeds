@@ -235,6 +235,7 @@ fun NavGraph(
                     onAddExercise = { navController.navigate(Screen.ExerciseDetail.createRoute()) },
                     onEditExercise = { id -> navController.navigate(Screen.ExerciseDetail.createRoute(id)) },
                     onScanClick = { navController.navigate(Screen.Scanner.createRoute("exercises")) },
+                    onPdfScanResult = { encodedText -> navController.navigate(Screen.ExerciseScanResult.createRoute(encodedText)) },
                     onSettingsClick = { navController.navigate(Screen.Settings.route) }
                 )
             }

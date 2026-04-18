@@ -31,6 +31,12 @@ interface ExerciseDao {
     @Query("DELETE FROM exercise_times WHERE exerciseId = :exerciseId")
     suspend fun deleteTimesForExercise(exerciseId: Int)
 
+    @Query("DELETE FROM exercises")
+    suspend fun deleteAllExercises()
+
+    @Query("DELETE FROM exercise_times")
+    suspend fun deleteAllExerciseTimes()
+
     @Transaction
     suspend fun upsertExerciseWithTimes(exercise: Exercise, times: List<ExerciseTime>): Int {
         val id = insertExercise(exercise).toInt()

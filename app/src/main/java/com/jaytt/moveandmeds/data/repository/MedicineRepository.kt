@@ -18,4 +18,9 @@ class MedicineRepository @Inject constructor(private val dao: MedicineDao) {
         dao.upsertMedicineWithTimes(medicine, times)
 
     suspend fun deleteMedicine(medicine: Medicine) = dao.deleteMedicine(medicine)
+
+    suspend fun deleteAll() {
+        dao.deleteAllMedicineTimes()
+        dao.deleteAllMedicines()
+    }
 }

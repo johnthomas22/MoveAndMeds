@@ -53,7 +53,7 @@ data class ParsedExerciseBlock(
 
 // ── Regex / signal patterns ───────────────────────────────────────────────────
 
-private val numberedLineRegex = Regex("""^\s*\d+[\s.]+(.+)$""")
+private val numberedLineRegex = Regex("""^\s*\d+[\s.,]+(.+)$""")
 private val repsValueRegex    = Regex("""(\d+)\s*(?:[–\-]|to)?\s*(\d*)\s*(?:reps?|repetitions?)""", RegexOption.IGNORE_CASE)
 private val setsValueRegex    = Regex("""(\d{1,2})\s*(?:sets?)\b""", RegexOption.IGNORE_CASE)
 private val timesPerDayRegex  = Regex("""(\d+)\s*(?:times?\s+a\s+day|x\s+a\s+day)""", RegexOption.IGNORE_CASE)
@@ -99,7 +99,7 @@ private val boilerplatePatterns = listOf(
 
 // Instruction/advice lines and description lines that look like exercise names but aren't
 private val instructionLinePattern = Regex(
-    """^(avoid|do not|don't|listen|remember|unless|if your|keep|place|always|never|ensure|start with|you can|you might|you should|breathe|clear|gently|have a|squeeze|lift your|lift the|stand and|stand with|stand on|bend your|bend the|flex your|hold your|hold the|return to|bring your|bring the|face the|slide your|slide the|raise your|lower your|step |walk |sit |swing |lie on|lie flat|lying |tighten|straighten|cross your|turn your|push your|pull your)""",
+    """^(avoid|do not|don't|listen|remember|unless|if your|keep|place|always|never|ensure|start with|you can|you might|you should|breathe|clear|gently|have a|squeeze|lift your|lift the|stand and|stand with|stand on|bend your|bend the|flex your|hold your|hold the|return to|bring your|bring the|face the|slide your|slide the|raise your|lower your|step |walk |sit |swing |lie on|lie flat|lie down|lying |tighten|straighten|cross your|turn your|push your|pull your|make |complete |relax |repeat |rotate |contract |move your|move the|perform |try to |aim to |from this|from the |in this |control |slowly |extend your|extend the)""",
     RegexOption.IGNORE_CASE
 )
 
@@ -136,32 +136,69 @@ fun parseExerciseBlocks(raw: String): List<ParsedExerciseBlock> {
         setsValueRegex.containsMatchIn(line)
     }
 
+    // If numbered exercises exist, only accept numbered lines — the un-numbered
+    // title-case path is only for sheets that don't number their exercises at all.
+    val hasNumberedExercises = lines.any { numberedLineRegex.containsMatchIn(it) }
+
     // ── Pass 1: find exercise name candidates ─────────────────────────────────
-    data class NameEntry(val lineIdx: Int, val name: String)
+    data class NameEntry(val lineIdx: Int, val name: String, val exerciseNum: Int = -1)
     val names = mutableListOf<NameEntry>()
     // When the document has no schedule signals, gate un-numbered names behind a
     // numbered exercise to avoid picking up document titles and hospital headers.
-    var seenNumberedExercise = documentHasScheduleSignals
+    var seenNumberedExercise = documentHasScheduleSignals && !hasNumberedExercises
+    // Set when a standalone number line ("6." / "7") is seen — name may be on the next line
+    var pendingNumber = false
+
+    val numberOnlyRegex = Regex("""^\d+\.?$""")
 
     for ((i, line) in lines.withIndex()) {
-        if (boilerplatePatterns.any { it.containsMatchIn(line) }) continue
+        if (boilerplatePatterns.any { it.containsMatchIn(line) }) {
+            pendingNumber = false
+            continue
+        }
+
+        // Detect standalone number lines (e.g. "6." = 2 chars) before the length filter.
+        if (numberOnlyRegex.matches(line)) {
+            pendingNumber = true
+            seenNumberedExercise = true
+            continue
+        }
+
         if (line.length < 3) continue
-        if (instructionLinePattern.containsMatchIn(line)) continue
+        if (instructionLinePattern.containsMatchIn(line)) {
+            pendingNumber = false
+            continue
+        }
 
         // Numbered line — strip any HOW OFTEN column text merged onto same line
         val numbered = numberedLineRegex.find(line)
         if (numbered != null) {
             val candidate = stripScheduleSuffix(numbered.groupValues[1].trim())
             if (isValidExerciseName(candidate) && !instructionLinePattern.containsMatchIn(candidate)) {
-                names.add(NameEntry(i, candidate))
+                val num = line.trim().takeWhile { it.isDigit() }.toIntOrNull() ?: -1
+                names.add(NameEntry(i, candidate, num))
                 seenNumberedExercise = true
+                pendingNumber = false
                 continue
             }
         }
 
-        // Non-numbered short title-case line — require 2+ words to filter
-        // single-word OCR artefacts (garbled logos, watermarks, etc.)
-        if (seenNumberedExercise
+        // Name following a standalone number line — skip schedule/reps lines but
+        // keep pendingNumber alive so the name can appear a line or two later.
+        if (pendingNumber) {
+            if (isScheduleOrReps(line)) continue
+            val candidate = stripScheduleSuffix(line)
+            if (isValidExerciseName(candidate)) {
+                names.add(NameEntry(i, candidate))
+            }
+            pendingNumber = false
+            continue
+        }
+
+        // Non-numbered short title-case line — only used when the document has no
+        // numbered exercises; require 2+ words to filter single-word OCR artefacts.
+        if (!hasNumberedExercises
+            && seenNumberedExercise
             && line.first().isUpperCase()
             && line.length in 5..70
             && line.split(Regex("\\s+")).size in 2..6
@@ -176,12 +213,15 @@ fun parseExerciseBlocks(raw: String): List<ParsedExerciseBlock> {
 
     if (names.isEmpty()) return emptyList()
 
+    // Sort by exercise number where available so out-of-order column reads are corrected
+    val sortedNames = names.sortedWith(compareBy { if (it.exerciseNum > 0) it.exerciseNum else Int.MAX_VALUE })
+
     // ── Pass 2: extract schedule groups from the whole document ───────────────
     val scheduleGroups = extractScheduleGroups(lines)
 
     // ── Pass 3: pair names with schedule groups and build blocks ──────────────
-    return names.mapIndexed { idx, entry ->
-        val nextNameIdx = names.getOrNull(idx + 1)?.lineIdx ?: lines.size
+    return sortedNames.mapIndexed { idx, entry ->
+        val nextNameIdx = sortedNames.getOrNull(idx + 1)?.lineIdx ?: lines.size
         val bodyLines = lines
             .subList(entry.lineIdx + 1, nextNameIdx)
             .filter { !boilerplatePatterns.any { p -> p.containsMatchIn(it) } }
@@ -267,15 +307,24 @@ private fun buildSchedule(freqText: String, reps: String): ParsedSchedule {
     )
 }
 
+private fun humanizeNotes(text: String): String {
+    var result = text
+    result = Regex("""[Rr]eps?:\s*(\d+)""").replace(result) { "repeat ${it.groupValues[1]} times" }
+    result = Regex("""[Ss]ets?:\s*(\d+)""").replace(result) { "do the exercise ${it.groupValues[1]} times" }
+    return result
+}
+
 private fun buildBlockFromSchedule(
     name: String,
     bodyLines: List<String>,
     schedule: ParsedSchedule?
 ): ParsedExerciseBlock {
-    val notes = bodyLines
-        .filter { !isScheduleOrReps(it) && it.length > 5 && !it.matches(Regex("""^[\d\s\-–.]+$""")) }
-        .joinToString(" ")
-        .trim()
+    val notes = humanizeNotes(
+        bodyLines
+            .filter { !isScheduleOrReps(it) && it.length > 5 && !it.matches(Regex("""^[\d\s\-–.]+$""")) }
+            .joinToString(" ")
+            .trim()
+    )
 
     return if (schedule != null) {
         ParsedExerciseBlock(
@@ -368,6 +417,26 @@ fun ExerciseScanResultScreen(
     var cropsLoading by remember { mutableStateOf(true) }
     LaunchedEffect(blocks) {
         if (blocks.isEmpty()) { exerciseCrops = emptyList(); cropsLoading = false; return@LaunchedEffect }
+
+        // PDF path: use images extracted directly from the PDF
+        val pdfImagesDir = File(context.cacheDir, "pdf_images")
+        if (pdfImagesDir.exists()) {
+            val imageFiles = pdfImagesDir.listFiles()
+                ?.filter { it.extension == "jpg" }
+                ?.sortedBy { it.nameWithoutExtension.toIntOrNull() ?: 0 }
+                ?: emptyList()
+            exerciseCrops = withContext(Dispatchers.IO) {
+                blocks.indices.map { i ->
+                    imageFiles.getOrNull(i)?.let {
+                        android.graphics.BitmapFactory.decodeFile(it.absolutePath)
+                    }
+                }
+            }
+            cropsLoading = false
+            return@LaunchedEffect
+        }
+
+        // Camera path: crop diagrams from the rendered scan bitmap via ML Kit
         val cacheFile = File(context.cacheDir, "exercise_scan_temp.jpg")
         if (!cacheFile.exists()) { exerciseCrops = List(blocks.size) { null }; return@LaunchedEffect }
         try {
@@ -594,7 +663,7 @@ private fun ExerciseBlockCard(
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (block.reps.isNotBlank()) {
-                        SummaryChip("${block.reps} reps")
+                        SummaryChip("repeat ${block.reps} times")
                     }
                     if (block.sets.isNotBlank()) {
                         SummaryChip("${block.sets} sets")

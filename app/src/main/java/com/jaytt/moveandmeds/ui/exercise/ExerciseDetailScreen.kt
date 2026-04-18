@@ -113,27 +113,6 @@ fun ExerciseDetailScreen(
                 )
             }
             item {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedTextField(
-                        value = sets,
-                        onValueChange = { sets = it },
-                        label = { Text("Sets (e.g. 3)") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = reps,
-                        onValueChange = { reps = it },
-                        label = { Text("Reps (e.g. 10)") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                }
-            }
-            item {
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
