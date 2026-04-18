@@ -1,6 +1,7 @@
-# Keystore - never commit
+# Keystore + Play credentials - never commit
 *.jks
 *.keystore
+play-service-account.json
 
 # Build outputs
 build/
